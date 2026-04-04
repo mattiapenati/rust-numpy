@@ -10,6 +10,7 @@ use std::mem::size_of;
 use std::str;
 use std::sync::Mutex;
 
+use npyffi::v115::*;
 use pyo3::sync::MutexExt;
 use pyo3::{
     ffi::{Py_UCS1, Py_UCS4},
@@ -18,8 +19,6 @@ use pyo3::{
 use rustc_hash::FxHashMap;
 
 use crate::dtype::{clone_methods_impl, Element, PyArrayDescr, PyArrayDescrMethods};
-use crate::npyffi::PyDataType_SET_ELSIZE;
-use crate::npyffi::NPY_TYPES;
 
 /// A newtype wrapper around [`[u8; N]`][Py_UCS1] to handle [`byte` scalars][numpy-bytes] while satisfying coherence.
 ///
@@ -80,7 +79,7 @@ unsafe impl<const N: usize> Element for PyFixedString<N> {
     fn get_dtype(py: Python<'_>) -> Bound<'_, PyArrayDescr> {
         static DTYPES: TypeDescriptors = TypeDescriptors::new();
 
-        unsafe { DTYPES.from_size(py, NPY_TYPES::NPY_STRING, b'|' as _, size_of::<Self>()) }
+        unsafe { DTYPES.from_size(py, NPY_STRING, b'|' as _, size_of::<Self>()) }
     }
 
     clone_methods_impl!(Self);
@@ -153,7 +152,7 @@ unsafe impl<const N: usize> Element for PyFixedUnicode<N> {
     fn get_dtype(py: Python<'_>) -> Bound<'_, PyArrayDescr> {
         static DTYPES: TypeDescriptors = TypeDescriptors::new();
 
-        unsafe { DTYPES.from_size(py, NPY_TYPES::NPY_UNICODE, b'=' as _, size_of::<Self>()) }
+        unsafe { DTYPES.from_size(py, NPY_UNICODE, b'=' as _, size_of::<Self>()) }
     }
 
     clone_methods_impl!(Self);

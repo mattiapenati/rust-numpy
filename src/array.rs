@@ -13,6 +13,7 @@ use ndarray::{
     Ix2, Ix3, Ix4, Ix5, Ix6, IxDyn, RawArrayView, RawArrayViewMut, RawData, ShapeBuilder,
     StrideShape,
 };
+use npyffi::v115::*;
 use num_traits::AsPrimitive;
 use pyo3::{
     ffi,
@@ -28,7 +29,6 @@ use crate::error::{
     AsSliceError, BorrowError, DimensionalityError, FromVecError, IgnoreError, TypeError,
     DIMENSIONALITY_MISMATCH_ERR, MAX_DIMENSIONALITY_ERR,
 };
-use crate::npyffi::{self, npy_intp, NPY_ORDER, PY_ARRAY_API};
 use crate::slice_container::PySliceContainer;
 use crate::untyped_array::{PyUntypedArray, PyUntypedArrayMethods};
 
@@ -128,7 +128,7 @@ unsafe impl<T: Element, D: Dimension> PyTypeInfo for PyArray<T, D> {
     const MODULE: Option<&'static str> = Some("numpy");
 
     fn type_object_raw<'py>(py: Python<'py>) -> *mut ffi::PyTypeObject {
-        unsafe { npyffi::get_type_object(py, npyffi::NpyTypes::PyArray_Type) }
+        unsafe { get_type_object(py, NpyTypes::PyArray_Type) }
     }
 
     fn is_type_of(ob: &Bound<'_, PyAny>) -> bool {
@@ -143,7 +143,7 @@ impl<T: Element, D: Dimension> PyArray<T, D> {
     {
         // Check if the object is an array.
         let array = unsafe {
-            if npyffi::PyArray_Check(ob.py(), ob.as_ptr()) == 0 {
+            if PyArray_Check(ob.py(), ob.as_ptr()) == 0 {
                 return Err(CastError::new(
                     ob.as_borrowed(),
                     <Self as PyTypeCheck>::classinfo_object(ob.py()),
@@ -232,7 +232,7 @@ impl<T: Element, D: Dimension> PyArray<T, D> {
         let mut dims = dims.into_dimension();
         let ptr = PY_ARRAY_API.PyArray_NewFromDescr(
             py,
-            npyffi::get_type_object(py, npyffi::NpyTypes::PyArray_Type),
+            get_type_object(py, NpyTypes::PyArray_Type),
             T::get_dtype(py).into_dtype_ptr(),
             dims.ndim_cint(),
             dims.as_dims_ptr(),
@@ -258,19 +258,19 @@ impl<T: Element, D: Dimension> PyArray<T, D> {
         let mut dims = dims.into_dimension();
         let ptr = PY_ARRAY_API.PyArray_NewFromDescr(
             py,
-            npyffi::get_type_object(py, npyffi::NpyTypes::PyArray_Type),
+            get_type_object(py, NpyTypes::PyArray_Type),
             T::get_dtype(py).into_dtype_ptr(),
             dims.ndim_cint(),
             dims.as_dims_ptr(),
-            strides as *mut npy_intp,    // strides
-            data_ptr as *mut c_void,     // data
-            npyffi::NPY_ARRAY_WRITEABLE, // flag
-            ptr::null_mut(),             // obj
+            strides as *mut npy_intp, // strides
+            data_ptr as *mut c_void,  // data
+            NPY_ARRAY_WRITEABLE,      // flag
+            ptr::null_mut(),          // obj
         );
 
         PY_ARRAY_API.PyArray_SetBaseObject(
             py,
-            ptr as *mut npyffi::PyArrayObject,
+            ptr as *mut PyArrayObject,
             container as *mut ffi::PyObject,
         );
 
@@ -1221,13 +1221,14 @@ pub trait PyArrayMethods<'py, T, D>: PyUntypedArrayMethods<'py> + Sized {
     ///
     /// ```
     /// use numpy::prelude::*;
-    /// use numpy::{npyffi::NPY_ORDER, PyArray};
+    /// use numpy::PyArray;
+    /// use npyffi::v115::NPY_FORTRANORDER;
     /// use pyo3::Python;
     /// use ndarray::array;
     ///
     /// Python::attach(|py| {
     ///     let array =
-    ///         PyArray::from_iter(py, 0..9).reshape_with_order([3, 3], NPY_ORDER::NPY_FORTRANORDER).unwrap();
+    ///         PyArray::from_iter(py, 0..9).reshape_with_order([3, 3], NPY_FORTRANORDER).unwrap();
     ///
     ///     assert_eq!(array.readonly().as_array(), array![[0, 3, 6], [1, 4, 7], [2, 5, 8]]);
     ///     assert!(array.is_fortran_contiguous());
@@ -1252,7 +1253,7 @@ pub trait PyArrayMethods<'py, T, D>: PyUntypedArrayMethods<'py> + Sized {
     where
         T: Element,
     {
-        self.reshape_with_order(shape, NPY_ORDER::NPY_ANYORDER)
+        self.reshape_with_order(shape, NPY_ANYORDER)
     }
 
     /// Extends or truncates the dimensions of an array.
@@ -1633,7 +1634,7 @@ impl<'py, T, D> PyArrayMethods<'py, T, D> for Bound<'py, PyArray<T, D>> {
         let mut axes = axes.as_mut().map(|axes| axes.to_npy_dims());
         let axes = axes
             .as_mut()
-            .map_or_else(ptr::null_mut, |axes| axes as *mut npyffi::PyArray_Dims);
+            .map_or_else(ptr::null_mut, |axes| axes as *mut PyArray_Dims);
 
         let py = self.py();
         let ptr = unsafe { PY_ARRAY_API.PyArray_Transpose(py, self.as_array_ptr(), axes) };
@@ -1656,7 +1657,7 @@ impl<'py, T, D> PyArrayMethods<'py, T, D> for Bound<'py, PyArray<T, D>> {
             PY_ARRAY_API.PyArray_Newshape(
                 py,
                 self.as_array_ptr(),
-                &mut shape as *mut npyffi::PyArray_Dims,
+                &mut shape as *mut PyArray_Dims,
                 order,
             )
         };
@@ -1674,9 +1675,9 @@ impl<'py, T, D> PyArrayMethods<'py, T, D> for Bound<'py, PyArray<T, D>> {
         let res = PY_ARRAY_API.PyArray_Resize(
             py,
             self.as_array_ptr(),
-            &mut newshape as *mut npyffi::PyArray_Dims,
+            &mut newshape as *mut PyArray_Dims,
             1,
-            NPY_ORDER::NPY_ANYORDER,
+            NPY_ANYORDER,
         );
 
         if !res.is_null() {

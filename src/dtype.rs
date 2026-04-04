@@ -4,6 +4,7 @@ use std::ptr;
 
 #[cfg(feature = "half")]
 use half::{bf16, f16};
+use npyffi::v115::*;
 use num_traits::{Bounded, Zero};
 #[cfg(feature = "half")]
 use pyo3::sync::PyOnceLock;
@@ -14,12 +15,6 @@ use pyo3::{
     pyobject_native_type_named,
     types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple, PyType},
     Borrowed, Bound, Py, PyAny, PyResult, PyTypeInfo, Python,
-};
-
-use crate::npyffi::{
-    self, NpyTypes, PyArray_Descr, PyDataType_ALIGNMENT, PyDataType_ELSIZE, PyDataType_FIELDS,
-    PyDataType_FLAGS, PyDataType_NAMES, PyDataType_SUBARRAY, NPY_ALIGNED_STRUCT,
-    NPY_BYTEORDER_CHAR, NPY_ITEM_HASOBJECT, NPY_TYPES, PY_ARRAY_API,
 };
 
 pub use num_complex::{Complex32, Complex64};
@@ -58,7 +53,7 @@ unsafe impl PyTypeInfo for PyArrayDescr {
 
     #[inline]
     fn type_object_raw<'py>(py: Python<'py>) -> *mut ffi::PyTypeObject {
-        unsafe { npyffi::get_type_object(py, NpyTypes::PyArrayDescr_Type) }
+        unsafe { get_type_object(py, NpyTypes::PyArrayDescr_Type) }
     }
 }
 
@@ -103,7 +98,7 @@ impl PyArrayDescr {
     /// Shortcut for creating a type descriptor of `object` type.
     #[inline]
     pub fn object(py: Python<'_>) -> Bound<'_, Self> {
-        Self::from_npy_type(py, NPY_TYPES::NPY_OBJECT)
+        Self::from_npy_type(py, NPY_OBJECT)
     }
 
     /// Returns the type descriptor for a registered type.
@@ -247,7 +242,7 @@ pub trait PyArrayDescrMethods<'py>: Sealed {
     ///
     /// [dtype-hasobject]: https://numpy.org/doc/stable/reference/generated/numpy.dtype.hasobject.html
     fn has_object(&self) -> bool {
-        self.flags() & NPY_ITEM_HASOBJECT != 0
+        self.flags() & NPY_ITEM_HASOBJECT as u64 != 0
     }
 
     /// Returns true if the type descriptor is a struct which maintains field alignment.
@@ -259,7 +254,7 @@ pub trait PyArrayDescrMethods<'py>: Sealed {
     ///
     /// [dtype-isalignedstruct]: https://numpy.org/doc/stable/reference/generated/numpy.dtype.isalignedstruct.html
     fn is_aligned_struct(&self) -> bool {
-        self.flags() & NPY_ALIGNED_STRUCT != 0
+        self.flags() & NPY_ALIGNED_STRUCT as u64 != 0
     }
 
     /// Returns true if the type descriptor is a sub-array.
@@ -278,7 +273,7 @@ pub trait PyArrayDescrMethods<'py>: Sealed {
         match self.byteorder() {
             b'=' => Some(true),
             b'|' => None,
-            byteorder => Some(byteorder == NPY_BYTEORDER_CHAR::NPY_NATBYTE as u8),
+            byteorder => Some(byteorder == NPY_NATBYTE as u8),
         }
     }
 
@@ -518,29 +513,23 @@ fn npy_int_type<T: Bounded + Zero + Sized + PartialEq>() -> NPY_TYPES {
     let bit_width = 8 * size_of::<T>();
 
     match (is_unsigned, bit_width) {
-        (false, 8) => NPY_TYPES::NPY_BYTE,
-        (false, 16) => NPY_TYPES::NPY_SHORT,
-        (false, 32) => npy_int_type_lookup::<i32, c_long, c_int, c_short>([
-            NPY_TYPES::NPY_LONG,
-            NPY_TYPES::NPY_INT,
-            NPY_TYPES::NPY_SHORT,
-        ]),
-        (false, 64) => npy_int_type_lookup::<i64, c_long, c_longlong, c_int>([
-            NPY_TYPES::NPY_LONG,
-            NPY_TYPES::NPY_LONGLONG,
-            NPY_TYPES::NPY_INT,
-        ]),
-        (true, 8) => NPY_TYPES::NPY_UBYTE,
-        (true, 16) => NPY_TYPES::NPY_USHORT,
-        (true, 32) => npy_int_type_lookup::<u32, c_ulong, c_uint, c_ushort>([
-            NPY_TYPES::NPY_ULONG,
-            NPY_TYPES::NPY_UINT,
-            NPY_TYPES::NPY_USHORT,
-        ]),
+        (false, 8) => NPY_BYTE,
+        (false, 16) => NPY_SHORT,
+        (false, 32) => {
+            npy_int_type_lookup::<i32, c_long, c_int, c_short>([NPY_LONG, NPY_INT, NPY_SHORT])
+        }
+        (false, 64) => {
+            npy_int_type_lookup::<i64, c_long, c_longlong, c_int>([NPY_LONG, NPY_LONGLONG, NPY_INT])
+        }
+        (true, 8) => NPY_UBYTE,
+        (true, 16) => NPY_USHORT,
+        (true, 32) => {
+            npy_int_type_lookup::<u32, c_ulong, c_uint, c_ushort>([NPY_ULONG, NPY_UINT, NPY_USHORT])
+        }
         (true, 64) => npy_int_type_lookup::<u64, c_ulong, c_ulonglong, c_uint>([
-            NPY_TYPES::NPY_ULONG,
-            NPY_TYPES::NPY_ULONGLONG,
-            NPY_TYPES::NPY_UINT,
+            NPY_ULONG,
+            NPY_ULONGLONG,
+            NPY_UINT,
         ]),
         _ => unreachable!(),
     }
@@ -589,7 +578,7 @@ macro_rules! impl_element_scalar {
         }
     };
     ($ty:ty => $npy_type:ident $(,#[$meta:meta])*) => {
-        impl_element_scalar!(@impl: $ty, NPY_TYPES::$npy_type $(,#[$meta])*);
+        impl_element_scalar!(@impl: $ty, $npy_type $(,#[$meta])*);
     };
     ($($tys:ty),+) => {
         $(impl_element_scalar!(@impl: $tys, npy_int_type::<$tys>());)+
@@ -653,7 +642,7 @@ mod tests {
     use pyo3::types::PyString;
     use pyo3::{py_run, types::PyTypeMethods};
 
-    use crate::npyffi::{is_numpy_2, NPY_NEEDS_PYAPI};
+    use npyffi::{is_numpy_2, v115::NPY_NEEDS_PYAPI};
 
     #[test]
     fn test_dtype_new() {
@@ -717,7 +706,7 @@ mod tests {
         Python::attach(|py| {
             let dt = dtype::<f64>(py);
 
-            assert_eq!(dt.num(), NPY_TYPES::NPY_DOUBLE as c_int);
+            assert_eq!(dt.num(), NPY_DOUBLE as c_int);
             assert_eq!(dt.flags(), 0);
             assert_eq!(dt.typeobj().qualname().unwrap(), "float64");
             assert_eq!(dt.char(), b'd');
@@ -753,7 +742,7 @@ mod tests {
                 .cast_into::<PyArrayDescr>()
                 .unwrap();
 
-            assert_eq!(dt.num(), NPY_TYPES::NPY_VOID as c_int);
+            assert_eq!(dt.num(), NPY_VOID as c_int);
             assert_eq!(dt.flags(), 0);
             assert_eq!(dt.typeobj().qualname().unwrap(), "void");
             assert_eq!(dt.char(), b'V');
@@ -789,10 +778,10 @@ mod tests {
                 .cast_into::<PyArrayDescr>()
                 .unwrap();
 
-            assert_eq!(dt.num(), NPY_TYPES::NPY_VOID as c_int);
-            assert_ne!(dt.flags() & NPY_ITEM_HASOBJECT, 0);
-            assert_ne!(dt.flags() & NPY_NEEDS_PYAPI, 0);
-            assert_ne!(dt.flags() & NPY_ALIGNED_STRUCT, 0);
+            assert_eq!(dt.num(), NPY_VOID as c_int);
+            assert_ne!(dt.flags() & NPY_ITEM_HASOBJECT as u64, 0);
+            assert_ne!(dt.flags() & NPY_NEEDS_PYAPI as u64, 0);
+            assert_ne!(dt.flags() & NPY_ALIGNED_STRUCT as u64, 0);
             assert_eq!(dt.typeobj().qualname().unwrap(), "void");
             assert_eq!(dt.char(), b'V');
             assert_eq!(dt.kind(), b'V');

@@ -3,12 +3,12 @@ use std::ffi::{CStr, CString};
 use std::ptr::null_mut;
 
 use ndarray::{Dimension, IxDyn};
+use npyffi::v115::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::{Borrowed, Bound, FromPyObject, PyResult};
 
 use crate::array::PyArray;
 use crate::dtype::Element;
-use crate::npyffi::{array::PY_ARRAY_API, NPY_CASTING, NPY_ORDER};
 
 /// Return value of a function that can yield either an array or a scalar.
 pub trait ArrayOrScalar<'a, 'py, T>: FromPyObject<'a, 'py> {}
@@ -156,8 +156,8 @@ where
             arrays.len() as _,
             arrays.as_ptr() as _,
             null_mut(),
-            NPY_ORDER::NPY_KEEPORDER,
-            NPY_CASTING::NPY_NO_CASTING,
+            NPY_KEEPORDER,
+            NPY_NO_CASTING,
             null_mut(),
         );
         Bound::from_owned_ptr_or_err(py, result)?

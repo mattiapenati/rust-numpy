@@ -60,14 +60,12 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
+use npyffi::v115::*;
 use pyo3::sync::MutexExt;
 use pyo3::{Bound, Py, Python};
 use rustc_hash::FxHashMap;
 
 use crate::dtype::{clone_methods_impl, Element, PyArrayDescr, PyArrayDescrMethods};
-use crate::npyffi::{
-    PyArray_DatetimeDTypeMetaData, PyDataType_C_METADATA, NPY_DATETIMEUNIT, NPY_TYPES,
-};
 
 /// Represents the [datetime units][datetime-units] supported by NumPy
 ///
@@ -91,7 +89,7 @@ macro_rules! define_units {
         pub struct $struct;
 
         impl Unit for $struct {
-            const UNIT: NPY_DATETIMEUNIT = NPY_DATETIMEUNIT::$unit;
+            const UNIT: NPY_DATETIMEUNIT = $unit;
 
             const ABBREV: &'static str = $abbrev;
         }
@@ -157,7 +155,7 @@ unsafe impl<U: Unit> Element for Datetime<U> {
     const IS_COPY: bool = true;
 
     fn get_dtype(py: Python<'_>) -> Bound<'_, PyArrayDescr> {
-        static DTYPES: TypeDescriptors = unsafe { TypeDescriptors::new(NPY_TYPES::NPY_DATETIME) };
+        static DTYPES: TypeDescriptors = unsafe { TypeDescriptors::new(NPY_DATETIME) };
 
         DTYPES.from_unit(py, U::UNIT)
     }
@@ -194,7 +192,7 @@ unsafe impl<U: Unit> Element for Timedelta<U> {
     const IS_COPY: bool = true;
 
     fn get_dtype(py: Python<'_>) -> Bound<'_, PyArrayDescr> {
-        static DTYPES: TypeDescriptors = unsafe { TypeDescriptors::new(NPY_TYPES::NPY_TIMEDELTA) };
+        static DTYPES: TypeDescriptors = unsafe { TypeDescriptors::new(NPY_TIMEDELTA) };
 
         DTYPES.from_unit(py, U::UNIT)
     }

@@ -5,6 +5,7 @@ use std::ptr::NonNull;
 use std::slice::from_raw_parts;
 use std::sync::Mutex;
 
+use npyffi::v115::*;
 use num_integer::gcd;
 use pyo3::ffi::c_str;
 use pyo3::sync::PyOnceLock;
@@ -15,7 +16,6 @@ use rustc_hash::FxHashMap;
 use crate::array::get_array_module;
 use crate::cold;
 use crate::error::BorrowError;
-use crate::npyffi::{PyArrayObject, PyArray_Check, PyDataType_ELSIZE, NPY_ARRAY_WRITEABLE};
 
 /// Defines the shared C API used for borrow checking
 ///

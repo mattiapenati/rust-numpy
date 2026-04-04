@@ -15,7 +15,7 @@
 //! ```rust
 //! # use std::panic::{catch_unwind, AssertUnwindSafe};
 //! #
-//! use numpy::{PyArray1, PyArrayMethods, npyffi::flags};
+//! use numpy::{PyArray1, PyArrayMethods};
 //! use ndarray::Zip;
 //! use pyo3::{Python, Bound};
 //!
@@ -175,13 +175,13 @@ use std::ops::Deref;
 use ndarray::{
     ArrayView, ArrayViewMut, Dimension, IntoDimension, Ix0, Ix1, Ix2, Ix3, Ix4, Ix5, Ix6, IxDyn,
 };
+use npyffi::v115::*;
 use pyo3::{Borrowed, Bound, CastError, FromPyObject, PyAny, PyResult};
 
 use crate::array::{PyArray, PyArrayMethods};
 use crate::convert::NpyIndex;
 use crate::dtype::Element;
 use crate::error::{AsSliceError, BorrowError};
-use crate::npyffi::flags;
 use crate::untyped_array::PyUntypedArrayMethods;
 
 use shared::{acquire, acquire_mut, release, release_mut};
@@ -537,7 +537,7 @@ where
         // SAFETY: consuming the only extant mutable reference guarantees we cannot invalidate an
         // existing reference, nor allow the caller to keep hold of one.
         unsafe {
-            (*self.as_array_ptr()).flags &= !flags::NPY_ARRAY_WRITEABLE;
+            (*self.as_array_ptr()).flags &= !NPY_ARRAY_WRITEABLE;
         }
         self.into()
     }

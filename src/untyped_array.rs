@@ -3,12 +3,12 @@
 //! [ndarray]: https://numpy.org/doc/stable/reference/arrays.ndarray.html
 use std::slice;
 
+use npyffi::v115::*;
 use pyo3::{ffi, pyobject_native_type_named, Bound, PyAny, PyTypeInfo, Python};
 
 use crate::array::{PyArray, PyArrayMethods};
 use crate::cold;
 use crate::dtype::PyArrayDescr;
-use crate::npyffi;
 
 /// A safe, untyped wrapper for NumPy's [`ndarray`] class.
 ///
@@ -64,11 +64,11 @@ unsafe impl PyTypeInfo for PyUntypedArray {
     const MODULE: Option<&'static str> = Some("numpy");
 
     fn type_object_raw<'py>(py: Python<'py>) -> *mut ffi::PyTypeObject {
-        unsafe { npyffi::get_type_object(py, npyffi::NpyTypes::PyArray_Type) }
+        unsafe { get_type_object(py, NpyTypes::PyArray_Type) }
     }
 
     fn is_type_of(ob: &Bound<'_, PyAny>) -> bool {
-        unsafe { npyffi::PyArray_Check(ob.py(), ob.as_ptr()) != 0 }
+        unsafe { PyArray_Check(ob.py(), ob.as_ptr()) != 0 }
     }
 }
 
@@ -77,8 +77,8 @@ pyobject_native_type_named!(PyUntypedArray);
 /// Implementation of functionality for [`PyUntypedArray`].
 #[doc(alias = "PyUntypedArray")]
 pub trait PyUntypedArrayMethods<'py>: Sealed {
-    /// Returns a raw pointer to the underlying [`PyArrayObject`][npyffi::PyArrayObject].
-    fn as_array_ptr(&self) -> *mut npyffi::PyArrayObject;
+    /// Returns a raw pointer to the underlying [`PyArrayObject`][npyffi::v115::PyArrayObject].
+    fn as_array_ptr(&self) -> *mut PyArrayObject;
 
     /// Returns the `dtype` of the array.
     ///
@@ -132,7 +132,7 @@ pub trait PyUntypedArrayMethods<'py>: Sealed {
     /// # }
     /// ```
     fn is_aligned(&self) -> bool {
-        unsafe { check_flags(&*self.as_array_ptr(), npyffi::NPY_ARRAY_ALIGNED) }
+        unsafe { check_flags(&*self.as_array_ptr(), NPY_ARRAY_ALIGNED) }
     }
 
     /// Returns `true` if the internal data of the array is contiguous,
@@ -161,19 +161,19 @@ pub trait PyUntypedArrayMethods<'py>: Sealed {
         unsafe {
             check_flags(
                 &*self.as_array_ptr(),
-                npyffi::NPY_ARRAY_C_CONTIGUOUS | npyffi::NPY_ARRAY_F_CONTIGUOUS,
+                NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS,
             )
         }
     }
 
     /// Returns `true` if the internal data of the array is Fortran-style/column-major contiguous.
     fn is_fortran_contiguous(&self) -> bool {
-        unsafe { check_flags(&*self.as_array_ptr(), npyffi::NPY_ARRAY_F_CONTIGUOUS) }
+        unsafe { check_flags(&*self.as_array_ptr(), NPY_ARRAY_F_CONTIGUOUS) }
     }
 
     /// Returns `true` if the internal data of the array is C-style/row-major contiguous.
     fn is_c_contiguous(&self) -> bool {
-        unsafe { check_flags(&*self.as_array_ptr(), npyffi::NPY_ARRAY_C_CONTIGUOUS) }
+        unsafe { check_flags(&*self.as_array_ptr(), NPY_ARRAY_C_CONTIGUOUS) }
     }
 
     /// Returns the number of dimensions of the array.
@@ -282,13 +282,13 @@ mod sealed {
 
 use sealed::Sealed;
 
-fn check_flags(obj: &npyffi::PyArrayObject, flags: i32) -> bool {
+fn check_flags(obj: &PyArrayObject, flags: i32) -> bool {
     obj.flags & flags != 0
 }
 
 impl<'py> PyUntypedArrayMethods<'py> for Bound<'py, PyUntypedArray> {
     #[inline]
-    fn as_array_ptr(&self) -> *mut npyffi::PyArrayObject {
+    fn as_array_ptr(&self) -> *mut PyArrayObject {
         self.as_ptr().cast()
     }
 
@@ -306,7 +306,7 @@ impl Sealed for Bound<'_, PyUntypedArray> {}
 // `Bound<'_, PyUntypedArray>`, so this seems to be the next best thing to do
 impl<'py, T, D> PyUntypedArrayMethods<'py> for Bound<'py, PyArray<T, D>> {
     #[inline]
-    fn as_array_ptr(&self) -> *mut npyffi::PyArrayObject {
+    fn as_array_ptr(&self) -> *mut PyArrayObject {
         self.as_untyped().as_array_ptr()
     }
 

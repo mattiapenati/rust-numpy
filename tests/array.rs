@@ -3,22 +3,32 @@ use std::mem::size_of;
 #[cfg(feature = "half")]
 use half::{bf16, f16};
 use ndarray::{array, s, Array1, Dim};
+use npyffi::v115::*;
 use numpy::prelude::*;
 use numpy::{
-    dtype, get_array_module, npyffi::NPY_ORDER, pyarray, PyArray, PyArray1, PyArray2, PyArrayDescr,
-    PyFixedString, PyFixedUnicode,
+    dtype, get_array_module, pyarray, PyArray, PyArray1, PyArray2, PyArrayDescr, PyFixedString,
+    PyFixedUnicode,
 };
 use pyo3::ffi::c_str;
+use pyo3::sync::PyOnceLock;
 use pyo3::{
     py_run, pyclass, pymethods,
     types::{IntoPyDict, PyAnyMethods, PyDict, PyList},
     Bound, Py, Python,
 };
+use pyo3::{PyAny, PyResult};
 
 fn get_np_locals(py: Python<'_>) -> Bound<'_, PyDict> {
     [("np", get_array_module(py).unwrap())]
         .into_py_dict(py)
         .unwrap()
+}
+
+fn import_numpy(py: Python<'_>) -> PyResult<&'_ Bound<'_, PyAny>> {
+    static NUMPY: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    NUMPY
+        .get_or_try_init(py, || py.import("numpy").map(|np| np.unbind().into_any()))
+        .map(|np| np.bind(py))
 }
 
 fn not_contiguous_array(py: Python<'_>) -> Bound<'_, PyArray1<i32>> {
@@ -516,7 +526,7 @@ fn permute_and_transpose() {
 fn reshape() {
     Python::attach(|py| {
         let array = PyArray::from_iter(py, 0..9)
-            .reshape_with_order([3, 3], NPY_ORDER::NPY_FORTRANORDER)
+            .reshape_with_order([3, 3], NPY_FORTRANORDER)
             .unwrap();
 
         assert_eq!(
@@ -533,8 +543,8 @@ fn reshape() {
 #[test]
 fn half_f16_works() {
     Python::attach(|py| {
-        let np = py.eval(c_str!("__import__('numpy')"), None, None).unwrap();
-        let locals = [("np", &np)].into_py_dict(py).unwrap();
+        let np = import_numpy(py).unwrap();
+        let locals = [("np", np)].into_py_dict(py).unwrap();
 
         let array = py
             .eval(
@@ -571,13 +581,13 @@ fn half_f16_works() {
 #[test]
 fn half_bf16_works() {
     Python::attach(|py| {
-        let np = py.eval(c_str!("__import__('numpy')"), None, None).unwrap();
+        let np = import_numpy(py).unwrap();
         // NumPy itself does not provide a `bfloat16` dtype itself,
         // so we import ml_dtypes which does register such a dtype.
         let mldt = py
             .eval(c_str!("__import__('ml_dtypes')"), None, None)
             .unwrap();
-        let locals = [("np", &np), ("mldt", &mldt)].into_py_dict(py).unwrap();
+        let locals = [("np", np), ("mldt", &mldt)].into_py_dict(py).unwrap();
 
         let array = py
             .eval(
@@ -613,8 +623,8 @@ fn half_bf16_works() {
 #[test]
 fn ascii_strings_with_explicit_dtype_works() {
     Python::attach(|py| {
-        let np = py.eval(c_str!("__import__('numpy')"), None, None).unwrap();
-        let locals = [("np", &np)].into_py_dict(py).unwrap();
+        let np = import_numpy(py).unwrap();
+        let locals = [("np", np)].into_py_dict(py).unwrap();
 
         let array = py
             .eval(
@@ -649,8 +659,8 @@ fn ascii_strings_with_explicit_dtype_works() {
 #[test]
 fn unicode_strings_with_explicit_dtype_works() {
     Python::attach(|py| {
-        let np = py.eval(c_str!("__import__('numpy')"), None, None).unwrap();
-        let locals = [("np", &np)].into_py_dict(py).unwrap();
+        let np = import_numpy(py).unwrap();
+        let locals = [("np", np)].into_py_dict(py).unwrap();
 
         let array = py
             .eval(
@@ -695,8 +705,8 @@ fn unicode_strings_with_explicit_dtype_works() {
 #[test]
 fn ascii_strings_ignore_byteorder() {
     Python::attach(|py| {
-        let np = py.eval(c_str!("__import__('numpy')"), None, None).unwrap();
-        let locals = [("np", &np)].into_py_dict(py).unwrap();
+        let np = import_numpy(py).unwrap();
+        let locals = [("np", np)].into_py_dict(py).unwrap();
 
         let native_endian_works = py
             .eval(
@@ -738,8 +748,8 @@ fn ascii_strings_ignore_byteorder() {
 #[test]
 fn unicode_strings_respect_byteorder() {
     Python::attach(|py| {
-        let np = py.eval(c_str!("__import__('numpy')"), None, None).unwrap();
-        let locals = [("np", &np)].into_py_dict(py).unwrap();
+        let np = import_numpy(py).unwrap();
+        let locals = [("np", np)].into_py_dict(py).unwrap();
 
         let native_endian_works = py
             .eval(

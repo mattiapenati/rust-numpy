@@ -3,12 +3,12 @@
 use std::{ffi::c_int, mem, ptr};
 
 use ndarray::{ArrayBase, Data, Dim, Dimension, IntoDimension, Ix1, OwnedRepr};
+use npyffi::v115::*;
 use pyo3::{Bound, Python};
 
 use crate::array::{PyArray, PyArrayMethods};
 use crate::dtype::Element;
 use crate::error::MAX_DIMENSIONALITY_ERR;
-use crate::npyffi::{self, npy_intp};
 use crate::slice_container::PySliceContainer;
 
 /// Conversion trait from owning Rust types into [`PyArray`].
@@ -216,7 +216,7 @@ where
 }
 
 pub(crate) trait ArrayExt {
-    fn npy_strides(&self) -> [npyffi::npy_intp; 32];
+    fn npy_strides(&self) -> [npy_intp; 32];
     fn order(&self) -> Option<c_int>;
 }
 
@@ -225,7 +225,7 @@ where
     S: Data<Elem = A>,
     D: Dimension,
 {
-    fn npy_strides(&self) -> [npyffi::npy_intp; 32] {
+    fn npy_strides(&self) -> [npy_intp; 32] {
         let strides = self.strides();
         let itemsize = mem::size_of::<A>() as isize;
 
@@ -234,7 +234,7 @@ where
         let mut new_strides = [0; 32];
 
         for i in 0..strides.len() {
-            new_strides[i] = (strides[i] * itemsize) as npyffi::npy_intp;
+            new_strides[i] = (strides[i] * itemsize) as npy_intp;
         }
 
         new_strides
@@ -242,9 +242,9 @@ where
 
     fn order(&self) -> Option<c_int> {
         if self.is_standard_layout() {
-            Some(npyffi::NPY_ORDER::NPY_CORDER as _)
+            Some(NPY_CORDER as _)
         } else if self.ndim() > 1 && self.raw_view().reversed_axes().is_standard_layout() {
-            Some(npyffi::NPY_ORDER::NPY_FORTRANORDER as _)
+            Some(NPY_FORTRANORDER as _)
         } else {
             None
         }
@@ -258,12 +258,12 @@ pub trait ToNpyDims: Dimension + Sealed {
         self.ndim() as c_int
     }
     #[doc(hidden)]
-    fn as_dims_ptr(&mut self) -> *mut npyffi::npy_intp {
-        self.slice_mut().as_ptr() as *mut npyffi::npy_intp
+    fn as_dims_ptr(&mut self) -> *mut npy_intp {
+        self.slice_mut().as_ptr() as *mut npy_intp
     }
     #[doc(hidden)]
-    fn to_npy_dims(&mut self) -> npyffi::PyArray_Dims {
-        npyffi::PyArray_Dims {
+    fn to_npy_dims(&mut self) -> PyArray_Dims {
+        PyArray_Dims {
             ptr: self.as_dims_ptr(),
             len: self.ndim_cint(),
         }

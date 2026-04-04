@@ -1,8 +1,9 @@
 use std::thread::spawn;
 
+use npyffi::v115::*;
 use numpy::{
-    array::PyArrayMethods, npyffi::NPY_ARRAY_WRITEABLE, PyArray, PyArray1, PyArray2,
-    PyReadonlyArray3, PyReadwriteArray3, PyUntypedArrayMethods,
+    array::PyArrayMethods, PyArray, PyArray1, PyArray2, PyReadonlyArray3, PyReadwriteArray3,
+    PyUntypedArrayMethods,
 };
 use pyo3::{
     ffi::c_str,
